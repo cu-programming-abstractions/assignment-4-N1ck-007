@@ -1,22 +1,106 @@
 #include "ShiftScheduling.h"
 using namespace std;
 
-int numSchedulesFor(const Set<Shift>& shifts, int maxHours) {
-    /* TODO: Delete this comment and the lines below it, then implement
-     * this function.
-     */
-    (void) shifts;
-    (void) maxHours;
-    return -1;
+int countSchedules(Vector<Shift>& allShifts, int index, Vector<Shift>& currentSchedule, int hoursLeft) {
+    if (index == allShifts.size()) return 1; // Add schedule to total
+
+    // Do not include current shift
+    int total = countSchedules(allShifts, index + 1, currentSchedule, hoursLeft);
+
+    // Include current shift (if it doesn't overlap or exceed hours)
+    Shift current = allShifts[index];
+    int shiftLength = lengthOf(current);
+
+    bool overlap = false;
+    for (auto shift : currentSchedule) {
+        if (overlapsWith(shift, current)) {
+            overlap = true;
+            break;
+        }
+    }
+
+    if (!overlap && shiftLength <= hoursLeft) {
+        currentSchedule.add(current);
+        total += countSchedules(allShifts, index + 1, currentSchedule, hoursLeft - shiftLength);
+        currentSchedule.remove(currentSchedule.size() - 1);
+    }
+
+    return total;
 }
 
-Set<Shift> maxProfitSchedule(const Set<Shift>& shifts, int maxHours) {
-    /* TODO: Delete this comment and the lines below it, then implement
-     * this function.
-     */
-    (void) shifts;
-    (void) maxHours;
-    return {};
+void countSchedulesProfit(Vector<Shift>& allShifts, int index, Vector<Shift>& currentSchedule, int hoursLeft, int& currentProfit, int& maxProfit, Vector<Shift>& maxProfitSchedule) {
+    if (index == allShifts.size()) // Valid schedule created
+    {
+        if (currentProfit > maxProfit)
+        {
+            maxProfit = currentProfit;
+            maxProfitSchedule = currentSchedule;
+        }
+
+        return;
+    }
+
+    // Do not include current shift
+    countSchedulesProfit(allShifts, index + 1, currentSchedule, hoursLeft, currentProfit, maxProfit, maxProfitSchedule);
+
+    // Include current shift (if it doesn't overlap or exceed hours)
+    Shift current = allShifts[index];
+    int shiftLength = lengthOf(current);
+
+    bool overlap = false;
+    for (auto shift : currentSchedule) {
+        if (overlapsWith(shift, current)) {
+            overlap = true;
+            break;
+        }
+    }
+
+    if (!overlap && shiftLength <= hoursLeft) {
+        currentSchedule.add(current);
+        currentProfit += profitFor(current);
+        countSchedulesProfit(allShifts, index + 1, currentSchedule, hoursLeft - shiftLength, currentProfit, maxProfit, maxProfitSchedule);
+        currentSchedule.remove(currentSchedule.size() - 1);
+        currentProfit -= profitFor(current);
+    }
+
+    return;
+}
+
+int numSchedulesFor(const Set<Shift>& shifts, int maxHours)
+{
+    if (maxHours < 0) error("maxHours is negative.");
+
+    Vector<Shift> allShifts;
+    for (const Shift& shift : shifts) {
+        allShifts.add(shift);
+    }
+
+    Vector<Shift> currentSchedule;
+    return countSchedules(allShifts, 0, currentSchedule, maxHours);
+}
+
+Set<Shift> maxProfitSchedule(const Set<Shift>& shifts, int maxHours)
+{
+    if (maxHours < 0) error("maxHours is negative.");
+
+    Vector<Shift> allShifts;
+    for (const Shift& shift : shifts) {
+        allShifts.add(shift);
+    }
+
+    Vector<Shift> currentSchedule;
+    Vector<Shift> maxProfitSchedule;
+    int currentProfit = 0;
+    int maxProfit = 0;
+    countSchedulesProfit(allShifts, 0, currentSchedule, maxHours, currentProfit, maxProfit, maxProfitSchedule);
+
+    Set<Shift> maxProfitSheduleSet;
+    for (auto i : maxProfitSchedule)
+    {
+        maxProfitSheduleSet.add(i);
+    }
+
+    return maxProfitSheduleSet;
 }
 
 
@@ -336,7 +420,15 @@ PROVIDED_TEST("numSchedulesFor stress test: Handles realistic set of shifts") {
     });
 }
 
-
+STUDENT_TEST("numSchedulesFor handles three non-overlapping shifts") {
+    Set<Shift> shifts = {
+        Shift(Day::MONDAY, 8, 10),
+        Shift(Day::MONDAY, 10, 12),
+        Shift(Day::MONDAY, 12, 15)
+    };
+    EXPECT_EQUAL(numSchedulesFor(shifts, 5), 7);
+    // {}, {1}, {2}, {3}, {1, 2}, {2, 3}, {1, 3}
+}
 
 
 
@@ -589,4 +681,9 @@ PROVIDED_TEST("maxProfitSchedule stress test: Handles realistic example.") {
         auto answer = maxProfitSchedule(asSet(shifts), 25);
         EXPECT_EQUAL(answer, { shifts[2], shifts[7], shifts[11], shifts[17], shifts[24] });
     });
+}
+
+STUDENT_TEST("maxProfitSchedule works on empty schedule.") {
+    Vector<Shift> shifts = {};
+    EXPECT_EQUAL(maxProfitSchedule(asSet(shifts), 100), {});
 }
